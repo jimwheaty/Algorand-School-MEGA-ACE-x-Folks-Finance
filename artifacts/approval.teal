@@ -1,0 +1,206 @@
+#pragma version 8
+intcblock 0 1
+txn NumAppArgs
+intc_0 // 0
+==
+bnz main_l14
+txna ApplicationArgs 0
+pushbytes 0xe7886cea // "opt_in_nft()void"
+==
+bnz main_l13
+txna ApplicationArgs 0
+pushbytes 0x4a524582 // "request_loan()void"
+==
+bnz main_l12
+txna ApplicationArgs 0
+pushbytes 0xfca539e0 // "delete_request()void"
+==
+bnz main_l11
+txna ApplicationArgs 0
+pushbytes 0x05795e93 // "repay_loan()void"
+==
+bnz main_l10
+txna ApplicationArgs 0
+pushbytes 0xdad5b5bd // "accept_loan()void"
+==
+bnz main_l9
+txna ApplicationArgs 0
+pushbytes 0x0e4dfb8e // "liquidate_loan()void"
+==
+bnz main_l8
+err
+main_l8:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub liquidateloancaster_12
+intc_1 // 1
+return
+main_l9:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub acceptloancaster_11
+intc_1 // 1
+return
+main_l10:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub repayloancaster_10
+intc_1 // 1
+return
+main_l11:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub deleterequestcaster_9
+intc_1 // 1
+return
+main_l12:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub requestloancaster_8
+intc_1 // 1
+return
+main_l13:
+txn OnCompletion
+intc_0 // NoOp
+==
+txn ApplicationID
+intc_0 // 0
+!=
+&&
+assert
+callsub optinnftcaster_7
+intc_1 // 1
+return
+main_l14:
+txn OnCompletion
+intc_0 // NoOp
+==
+bnz main_l18
+txn OnCompletion
+intc_1 // OptIn
+==
+bnz main_l17
+err
+main_l17:
+txn ApplicationID
+intc_0 // 0
+!=
+assert
+callsub optinborrower_1
+intc_1 // 1
+return
+main_l18:
+txn ApplicationID
+intc_0 // 0
+==
+assert
+intc_1 // 1
+return
+
+// opt_in_nft
+optinnft_0:
+proto 0 0
+intc_1 // 1
+return
+
+// opt_in_borrower
+optinborrower_1:
+proto 0 0
+intc_1 // 1
+return
+
+// request_loan
+requestloan_2:
+proto 0 0
+intc_1 // 1
+return
+
+// delete_request
+deleterequest_3:
+proto 0 0
+intc_1 // 1
+return
+
+// repay_loan
+repayloan_4:
+proto 0 0
+intc_1 // 1
+return
+
+// accept_loan
+acceptloan_5:
+proto 0 0
+intc_1 // 1
+return
+
+// liquidate_loan
+liquidateloan_6:
+proto 0 0
+intc_1 // 1
+return
+
+// opt_in_nft_caster
+optinnftcaster_7:
+proto 0 0
+callsub optinnft_0
+retsub
+
+// request_loan_caster
+requestloancaster_8:
+proto 0 0
+callsub requestloan_2
+retsub
+
+// delete_request_caster
+deleterequestcaster_9:
+proto 0 0
+callsub deleterequest_3
+retsub
+
+// repay_loan_caster
+repayloancaster_10:
+proto 0 0
+callsub repayloan_4
+retsub
+
+// accept_loan_caster
+acceptloancaster_11:
+proto 0 0
+callsub acceptloan_5
+retsub
+
+// liquidate_loan_caster
+liquidateloancaster_12:
+proto 0 0
+callsub liquidateloan_6
+retsub

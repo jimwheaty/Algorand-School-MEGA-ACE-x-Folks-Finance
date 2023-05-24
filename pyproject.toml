@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "bounty"
+version = "0.1.0"
+description = "Algorand smart contracts"
+authors = ["Gilad <gilad@sundaygroupinc.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+beaker-pyteal = "^1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pip-audit = "*"
+black = {extras = ["d"], version = "*"}
+mypy = "*"
+pytest = "*"
+pytest-cov = "*"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+
+[tool.pytest.ini_options]
+pythonpath = [".", "tests"]
+
+
+[tool.mypy]
+files = "./"
+python_version = "3.10"
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+allow_untyped_defs = false
+strict_equality = true
+
