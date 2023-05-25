@@ -163,17 +163,15 @@ def repay_loan() -> Expr:
         Assert(app.state.lender != Bytes("")),
         Assert(Global.latest_timestamp() <= app.state.end.get()),
         # TODO: fix interest
-        amount := app.state.amount.get()
-        + app.state.interest.get()
-        * (
-            (Global.latest_timestamp() - app.state.start.get()) / 31556926
-        ),  # 1 year = 31 556 926 seconds
         # Transaction
         InnerTxnBuilder.Execute(
             {
                 TxnField.type_enum: TxnType.AssetTransfer,
                 TxnField.xfer_asset: app.state.token.get(),
-                TxnField.amount: amount,
+                TxnField.amount:
+                 app.state.amount.get()
+                 + app.state.interest.get()
+                 * ((Global.latest_timestamp()-app.state.start.get()) / Int(31556926)),
                 TxnField.receiver: app.state.lender.get(),
                 TxnField.fee: Int(0),
             }
@@ -232,4 +230,4 @@ def liquidate_loan(nft: abi.Asset, close_to_account: abi.Account) -> Expr:
     )
 
 if __name__ == "__main__":
-    app.build().export()
+    app.build().export("./artifacts")

@@ -1,12 +1,12 @@
 {
-    "name": "Auction",
+    "name": "NFTasCollateral",
     "methods": [
         {
-            "name": "opt_into_asset",
+            "name": "opt_in_nft",
             "args": [
                 {
                     "type": "asset",
-                    "name": "asset"
+                    "name": "nft"
                 }
             ],
             "returns": {
@@ -14,15 +14,23 @@
             }
         },
         {
-            "name": "start_auction",
+            "name": "request_loan",
             "args": [
                 {
                     "type": "uint64",
-                    "name": "starting_price"
+                    "name": "token"
                 },
                 {
                     "type": "uint64",
-                    "name": "length"
+                    "name": "amount"
+                },
+                {
+                    "type": "uint64",
+                    "name": "duration"
+                },
+                {
+                    "type": "uint64",
+                    "name": "interest"
                 },
                 {
                     "type": "axfer",
@@ -34,15 +42,25 @@
             }
         },
         {
-            "name": "bid",
+            "name": "delete_request",
+            "args": [],
+            "returns": {
+                "type": "void"
+            }
+        },
+        {
+            "name": "repay_loan",
+            "args": [],
+            "returns": {
+                "type": "void"
+            }
+        },
+        {
+            "name": "accept_loan",
             "args": [
                 {
                     "type": "pay",
-                    "name": "payment"
-                },
-                {
-                    "type": "account",
-                    "name": "previous_bidder"
+                    "name": "loan"
                 }
             ],
             "returns": {
@@ -50,31 +68,17 @@
             }
         },
         {
-            "name": "claim_bid",
-            "args": [],
-            "returns": {
-                "type": "void"
-            }
-        },
-        {
-            "name": "claim_asset",
+            "name": "liquidate_loan",
             "args": [
                 {
                     "type": "asset",
-                    "name": "asset"
+                    "name": "nft"
                 },
                 {
                     "type": "account",
                     "name": "close_to_account"
                 }
             ],
-            "returns": {
-                "type": "void"
-            }
-        },
-        {
-            "name": "delete",
-            "args": [],
             "returns": {
                 "type": "void"
             }
