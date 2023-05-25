@@ -1,44 +1,27 @@
-# bounty
+This repo was initialized with algokit and contains the following:
 
-This project has been generated using AlgoKit. See below for default getting started instructions.
+1. [An auction smart contract](app.py) written with [PyTeal](https://github.com/algorand/pyteal) and [Beaker](https://github.com/algorand-devrel/beaker)
+2. [Python Tests](test_app.py) written with [Beaker](https://github.com/algorand-devrel/beaker) and [pytest](https://docs.pytest.org/en/7.1.x/)
+3. A web-based [front-end](web/) written with [js-algorand-sdk](https://github.com/algorand-devrel/beaker) and [algokit-utils-ts](https://github.com/algorandfoundation/algokit-utils-ts/) (based on [algo-web-template](https://github.com/algorand-devrel/algo-web-template))
 
-# Setup
+# Install python dependencies
 
-### Initial setup
+`algokit bootstrap all`
 
-1. Clone this repository: `git clone {repository_url}`
-2. Install pre-requisites:
-   - If you have AlgoKit installed, run `algokit bootstrap poetry` within this folder;
-   - or:
-     - Install `Python` - [Link](https://www.python.org/downloads/): The minimum required version is `3.10`. Ensure you can execute `python -V` and get `3.10`+.
-     - Install `Poetry` - [Link](https://python-poetry.org/docs/#installation): The minimum required version is `1.2`. Ensure you can execute `poetry -V` and get `1.2`+.
-     - If you're not using PyCharm, then run `poetry install` in the root directory (this should set up `.venv` and also install all Python dependencies) - PyCharm will do this for you automatically on startup 🪄.
-3. Open the project and start debugging / developing via:
-   - VS Code
-     1. Open the repository root in VS Code
-     2. Install recommended extensions
-     3. Hit F5 (or whatever you have debug mapped to) and it should start running with breakpoint debugging.
-        (**NOTE:** The first time you run, VS Code may prompt you to select the Python Interpreter. Select python from the .venv path within this project)
-   - IDEA (e.g. PyCharm)
-     1. Open the repository root in the IDE
-     2. It should automatically detect it's a Poetry project and set up a Python interpreter and virtual environment.
-     3. Hit Shift+F9 (or whatever you have debug mapped to) and it should start running with breakpoint debugging.
-   - Other
-     1. Open the repository root in your text editor of choice
-     2. In a terminal run `poetry shell`
-     3. Run `python app.py` through your debugger of choice
 
-### Subsequently
+# Usage
 
-1. If you update to the latest source code and there are new dependencies you will need to run `poetry install` again
-2. Follow step 3 above
+## Compile Contract
 
-# Tools
+`poetry run python app.py`
 
-This project makes use of Python to build Algorand smart contracts. The following tools are in use:
+## Python Tests (PyTest)
 
-- [Poetry](https://python-poetry.org/): Python packaging and dependency management.- [Black](https://github.com/psf/black): A Python code formatter.
+`poetry run pytest`
 
-- [mypy](https://mypy-lang.org/): Static type checker.
+## Web Front End
 
-It has also been configured to have a productive dev experience out of the box in VS Code, see the [.vscode](./.vscode) folder.
+1. `cd web/`
+2. `npm run serve` to serve and open web app
+
+To use the app you must have at least one account in Pera funded on testnet. You can get testnet funds [here](https://bank.testnet.algorand.network/)

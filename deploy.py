@@ -1,5 +1,6 @@
+from beaker import client, sandbox
+
 from app import app
-from beaker import sandbox, client
 
 app.build().export("./artifacts")
 
@@ -14,8 +15,3 @@ app_client = client.ApplicationClient(
 )
 
 app_client.create()
-
-#return_value = app_client.call(hello, name="Beaker").return_value
-#print(return_value)
-# Build the sample contract in this directory using Beaker and output to ./artifacts
-
