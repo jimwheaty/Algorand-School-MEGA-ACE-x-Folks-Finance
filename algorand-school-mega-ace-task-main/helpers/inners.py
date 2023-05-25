@@ -1,7 +1,6 @@
 from pyteal import *
 
-
-def send_asset_transfer_transaction(asa_id: Expr, receiver: Expr, amount: Expr):
+def send_asset_transfer_transaction(asa_id: Expr, receiver: Expr, amount: Expr) -> Expr:
     return Seq(
         InnerTxnBuilder.Execute(
             {
@@ -15,7 +14,7 @@ def send_asset_transfer_transaction(asa_id: Expr, receiver: Expr, amount: Expr):
     )
 
 
-def send_opt_in_transaction(asa_id: Expr):
+def send_opt_in_transaction(asa_id: Expr) -> Expr:
     return Seq(
         InnerTxnBuilder.Execute(
             {

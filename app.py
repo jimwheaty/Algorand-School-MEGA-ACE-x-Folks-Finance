@@ -7,13 +7,13 @@ from pyteal import *
 
 
 class State:
-    collateral_id: Final[GlobalStateValue] = GlobalStateValue(
+    nft: Final[GlobalStateValue] = GlobalStateValue(
         stack_type=TealType.uint64,
         default=Int(0),
         descr="ID of the NFT",
     )
 
-    borrowing_id: Final[GlobalStateValue] = GlobalStateValue(
+    token: Final[GlobalStateValue] = GlobalStateValue(
         stack_type=TealType.uint64,
         default=Int(0),
         descr="ID of the token requested to borrow",
@@ -28,7 +28,7 @@ class State:
     interest: Final[GlobalStateValue] = GlobalStateValue(  # 2 decimal points
         stack_type=TealType.uint64,
         default=Int(0),
-        descr="Amount of interest the borrower asks for (uALGO)",
+        descr="Amount of interest the borrower asks for",
     )
 
     start: Final[GlobalStateValue] = GlobalStateValue(
@@ -37,10 +37,22 @@ class State:
         descr="Timestamp that the loan started",
     )
 
+    end: Final[GlobalStateValue] = GlobalStateValue(
+        stack_type=TealType.uint64,
+        default=Int(0),
+        descr="Timestamp that the loan is ended",
+    )
+
     duration: Final[GlobalStateValue] = GlobalStateValue(
         stack_type=TealType.uint64,
         default=Int(0),
-        descr="Duration that the loan is valid",
+        descr="How much time the borrower needs the loan for",
+    )
+
+    borrower: Final[GlobalStateValue] = GlobalStateValue(
+        stack_type=TealType.bytes,
+        default=Bytes(""),
+        descr="ID of the borrower",
     )
 
     lender: Final[GlobalStateValue] = GlobalStateValue(
@@ -55,33 +67,43 @@ app = Application("NFTasCollateral", state=State)
 
 @app.create(bare=True)
 def create() -> Expr:
-    # Set all global state to the default values
+    # State
     return app.initialize_global_state()
 
 
-# Only allow app creator to opt the app account into a NFT
-@app.external(authorize=Authorize.only(Global.creator_address()))
-def opt_in_nft(nft: abi.Asset) -> Expr:
+# ---------------------------- Borrower ----------------------------
+@app.opt_in(bare=True)
+def opt_in_borrower() -> Expr:
     return Seq(
-        # Verify a NFT hasn't already been opted into
-        Assert(app.state.collateral_id == Int(0)),
-        # Save ASA ID in global state
-        app.state.collateral_id.set(nft.asset_id()),
-        # Submit opt-in transaction: 0 asset transfer to self
-        InnerTxnBuilder.Execute(
-            {
-                TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.fee: Int(0),  # cover fee with outer txn
-                TxnField.asset_receiver: Global.current_application_address(),
-                TxnField.xfer_asset: nft.asset_id(),
-                TxnField.asset_amount: Int(0),
-            }
-        ),
+        # Checks
+        Assert(app.state.borrower == Bytes("")),
+        # State
+        app.state.borrower.set(Txn.sender())
     )
 
 
-# Borrower
-@app.external(authorize=Authorize.only(Global.creator_address()))
+@app.external()
+def opt_in_nft(nft: abi.Asset) -> Expr:
+    return Seq(
+        # Checks
+        Assert(Txn.sender() == app.state.borrower),
+        Assert(app.state.nft == Int(0)),
+        # Transaction
+        InnerTxnBuilder.Execute(
+            {
+                TxnField.type_enum: TxnType.AssetTransfer,
+                TxnField.xfer_asset: nft.asset_id(),
+                TxnField.amount: Int(0),
+                TxnField.receiver: Global.current_application_address(),
+                TxnField.fee: Int(0),
+            }
+        ),
+        # State
+        app.state.nft.set(nft.asset_id()),
+    )
+
+
+@app.external()
 def request_loan(
     token: abi.Uint64,
     amount: abi.Uint64,
@@ -90,13 +112,23 @@ def request_loan(
     axfer: abi.AssetTransferTransaction,
 ) -> Expr:
     return Seq(
-        # Ensure the loan hasn't already been started
-        Assert(app.state.borrowing_id.get() == Int(0)),
-        # Verify axfer
+        # Checks
+        Assert(Txn.sender() == app.state.borrower),
+        Assert(app.state.token.get() == Int(0)),
         Assert(axfer.get().asset_receiver() == Global.current_application_address()),
-        Assert(axfer.get().xfer_asset() == app.state.collateral_id),
-        # Set global state
-        app.state.borrowing_id.set(token.get()),
+        Assert(axfer.get().xfer_asset() == app.state.nft),
+        # Transaction
+        InnerTxnBuilder.Execute(
+            {
+                TxnField.type_enum: TxnType.AssetTransfer,
+                TxnField.xfer_asset: axfer.get().xfer_asset(),
+                TxnField.amount: Int(1),
+                TxnField.receiver: Global.current_application_address(),
+                TxnField.fee: Int(0),
+            }
+        ),
+        # State
+        app.state.token.set(token.get()),
         app.state.amount.set(amount.get()),
         app.state.duration.set(duration.get()),
         app.state.interest.set(interest.get()),
@@ -106,92 +138,98 @@ def request_loan(
 @app.delete
 def delete_request() -> Expr:
     return Seq(
-        Assert(app.state.lender.get() == Bytes("")),
+        # Checks
+        Assert(Txn.sender() == app.state.borrower),
+        Assert(app.state.lender == Bytes("")),
+        # Transaction
         InnerTxnBuilder.Execute(
             {
                 TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.fee: Int(0),  # cover fee with outer txn
-                TxnField.receiver: Global.creator_address(),
-                TxnField.xfer_asset: app.state.collateral_id.get(),
-                # close_remainder_to to sends full balance, including 0.1 account MBR
-                TxnField.close_remainder_to: Global.creator_address(),
-                # we are closing the account, so amount can be zero
-                TxnField.amount: Int(0),
+                TxnField.xfer_asset: app.state.nft.get(),
+                TxnField.amount: Int(1),
+                TxnField.receiver: app.state.borrower.get(),
+                TxnField.fee: Int(0),
+                TxnField.close_remainder_to: app.state.borrower.get(),
             }
         ),
     )
 
 
-@Subroutine(TealType.none)
-def tranfer_token(receiver: Expr, token: Expr, amount: Expr) -> Expr:
-    return InnerTxnBuilder.Execute(
-        {
-            TxnField.type_enum: TxnType.Payment,
-            TxnField.xfer_asset: token,
-            TxnField.receiver: receiver,
-            TxnField.amount: amount,
-            TxnField.fee: Int(0),  # cover fee with outer txn
-        }
-    )
-
-
-@app.external(authorize=Authorize.only(Global.creator_address()))
+@app.external
 def repay_loan() -> Expr:
     return Seq(
-        # Auction end check is commented out for automated testing
-        Assert(
-            Global.latest_timestamp()
-            <= app.state.start.get() + app.state.duration.get()
-        ),
+        # Checks
+        Assert(Txn.sender() == app.state.borrower),
+        Assert(app.state.lender != Bytes("")),
+        Assert(Global.latest_timestamp() <= app.state.end.get()),
+        # TODO: fix interest
         amount := app.state.amount.get()
         + app.state.interest.get()
         * (
             (Global.latest_timestamp() - app.state.start.get()) / 31556926
         ),  # 1 year = 31 556 926 seconds
-        tranfer_token(app.state.lender.get(), app.state.borrowing_id.get(), amount),
+        # Transaction
+        InnerTxnBuilder.Execute(
+            {
+                TxnField.type_enum: TxnType.AssetTransfer,
+                TxnField.xfer_asset: app.state.token.get(),
+                TxnField.amount: amount,
+                TxnField.receiver: app.state.lender.get(),
+                TxnField.fee: Int(0),
+            }
+        ),
+        # TODO: delete contract?
     )
 
 
-# Lender
+# ---------------------------- Lender ----------------------------
 @app.external
 def accept_loan(loan: abi.PaymentTransaction) -> Expr:
     return Seq(
-        # Verify loan transaction
+        # Checks
         Assert(app.state.lender == Bytes("")),
-        Assert(loan.get().xfer_asset() == app.state.borrowing_id.get()),
+        Assert(loan.get().xfer_asset() == app.state.token.get()),
         Assert(loan.get().amount() == app.state.amount.get()),
-        Assert(Txn.sender() == loan.get().sender()),
-        Assert(loan.get().receiver() == Global.creator_address()),
-        # Set global state
-        app.state.lender.set(loan.get().sender()),
-        tranfer_token(
-            Global.creator_address(),
-            app.state.borrowing_id.get(),
-            app.state.amount.get(),
+        Assert(loan.get().receiver() == app.state.borrower.get()),
+        Assert(loan.get().sender() == Txn.sender()),
+        # Transaction
+        InnerTxnBuilder.Execute(
+            {
+                TxnField.type_enum: TxnType.AssetTransfer,
+                TxnField.xfer_asset: loan.get().xfer_asset(),
+                TxnField.amount: loan.get().amount(),
+                TxnField.receiver: loan.get().receiver(),
+                TxnField.fee: Int(0),
+            }
         ),
+        # State
+        app.state.lender.set(loan.get().sender()),
+        app.state.start.set(Global.latest_timestamp()),
+        app.state.end.set(Global.latest_timestamp() + app.state.duration.get()),
     )
 
 
 @app.external
 def liquidate_loan(nft: abi.Asset, close_to_account: abi.Account) -> Expr:
     return Seq(
-        # Auction end check is commented out for automated testing
+        # Checks
+        Assert(Txn.sender() == app.state.lender),
         Assert(
-            Global.latest_timestamp() > app.state.start.get() + app.state.duration.get()
+            Global.latest_timestamp() > app.state.end.get()
         ),
-        # Send ASA to highest bidder
+        # Transaction
         InnerTxnBuilder.Execute(
             {
                 TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.fee: Int(0),  # cover fee with outer txn
-                TxnField.xfer_asset: app.state.collateral_id,
+                TxnField.xfer_asset: app.state.nft,
                 TxnField.asset_amount: Int(1),
                 TxnField.asset_receiver: app.state.lender,
+                TxnField.fee: Int(0),
                 TxnField.asset_close_to: close_to_account.address(),
             }
         ),
+        # TODO: delete contract?
     )
-
 
 if __name__ == "__main__":
     app.build().export()
