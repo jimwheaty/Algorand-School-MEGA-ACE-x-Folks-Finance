@@ -72,7 +72,8 @@ def create() -> Expr:
 
 
 # ---------------------------- Borrower ----------------------------
-@app.opt_in(bare=True)
+@app.external()
+# @app.opt_in(bare=True)
 def opt_in_borrower() -> Expr:
     return Seq(
         # Checks
@@ -93,8 +94,8 @@ def opt_in_nft(nft: abi.Asset) -> Expr:
             {
                 TxnField.type_enum: TxnType.AssetTransfer,
                 TxnField.xfer_asset: nft.asset_id(),
-                TxnField.amount: Int(0),
-                TxnField.receiver: Global.current_application_address(),
+                TxnField.asset_amount: Int(0),
+                TxnField.asset_receiver: Global.current_application_address(),
                 TxnField.fee: Int(0),
             }
         ),
@@ -117,16 +118,6 @@ def request_loan(
         Assert(app.state.token.get() == Int(0)),
         Assert(axfer.get().asset_receiver() == Global.current_application_address()),
         Assert(axfer.get().xfer_asset() == app.state.nft),
-        # Transaction
-        InnerTxnBuilder.Execute(
-            {
-                TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.xfer_asset: axfer.get().xfer_asset(),
-                TxnField.amount: Int(1),
-                TxnField.receiver: Global.current_application_address(),
-                TxnField.fee: Int(0),
-            }
-        ),
         # State
         app.state.token.set(token.get()),
         app.state.amount.set(amount.get()),
@@ -135,7 +126,7 @@ def request_loan(
     )
 
 
-@app.delete
+@app.external()
 def delete_request() -> Expr:
     return Seq(
         # Checks
@@ -145,61 +136,43 @@ def delete_request() -> Expr:
         InnerTxnBuilder.Execute(
             {
                 TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.xfer_asset: app.state.nft.get(),
-                TxnField.amount: Int(1),
-                TxnField.receiver: app.state.borrower.get(),
+                TxnField.xfer_asset: app.state.nft,
+                TxnField.asset_amount: Int(1),
+                TxnField.asset_receiver: app.state.borrower.get(),
                 TxnField.fee: Int(0),
-                TxnField.close_remainder_to: app.state.borrower.get(),
+                TxnField.asset_close_to: app.state.borrower.get(),
             }
         ),
+        # State
+        app.initialize_global_state()
     )
 
 
 @app.external
-def repay_loan() -> Expr:
+def repay_loan(loan: abi.AssetTransferTransaction) -> Expr:
     return Seq(
         # Checks
         Assert(Txn.sender() == app.state.borrower),
         Assert(app.state.lender != Bytes("")),
         Assert(Global.latest_timestamp() <= app.state.end.get()),
-        # TODO: fix interest
-        # Transaction
-        InnerTxnBuilder.Execute(
-            {
-                TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.xfer_asset: app.state.token.get(),
-                TxnField.amount:
-                 app.state.amount.get()
-                 + app.state.interest.get()
-                 * ((Global.latest_timestamp()-app.state.start.get()) / Int(31556926)),
-                TxnField.receiver: app.state.lender.get(),
-                TxnField.fee: Int(0),
-            }
-        ),
+        Assert(loan.get().xfer_asset() == app.state.token.get()),
+        Assert(loan.get().asset_amount() == app.state.amount.get()),
+        Assert(loan.get().asset_receiver() == app.state.lender.get()),
+        # State
+        app.initialize_global_state()
         # TODO: delete contract?
     )
 
 
 # ---------------------------- Lender ----------------------------
 @app.external
-def accept_loan(loan: abi.PaymentTransaction) -> Expr:
+def accept_loan(loan: abi.AssetTransferTransaction) -> Expr:
     return Seq(
         # Checks
         Assert(app.state.lender == Bytes("")),
         Assert(loan.get().xfer_asset() == app.state.token.get()),
-        Assert(loan.get().amount() == app.state.amount.get()),
-        Assert(loan.get().receiver() == app.state.borrower.get()),
-        Assert(loan.get().sender() == Txn.sender()),
-        # Transaction
-        InnerTxnBuilder.Execute(
-            {
-                TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.xfer_asset: loan.get().xfer_asset(),
-                TxnField.amount: loan.get().amount(),
-                TxnField.receiver: loan.get().receiver(),
-                TxnField.fee: Int(0),
-            }
-        ),
+        Assert(loan.get().asset_amount() == app.state.amount.get()),
+        Assert(loan.get().asset_receiver() == app.state.borrower.get()),
         # State
         app.state.lender.set(loan.get().sender()),
         app.state.start.set(Global.latest_timestamp()),
@@ -208,7 +181,7 @@ def accept_loan(loan: abi.PaymentTransaction) -> Expr:
 
 
 @app.external
-def liquidate_loan(nft: abi.Asset, close_to_account: abi.Account) -> Expr:
+def liquidate_loan(close_to_account: abi.Account) -> Expr:
     return Seq(
         # Checks
         Assert(Txn.sender() == app.state.lender),
@@ -223,10 +196,11 @@ def liquidate_loan(nft: abi.Asset, close_to_account: abi.Account) -> Expr:
                 TxnField.asset_amount: Int(1),
                 TxnField.asset_receiver: app.state.lender,
                 TxnField.fee: Int(0),
-                TxnField.asset_close_to: close_to_account.address(),
+                TxnField.asset_close_to: app.state.lender,
             }
         ),
         # TODO: delete contract?
+        app.initialize_global_state()
     )
 
 if __name__ == "__main__":

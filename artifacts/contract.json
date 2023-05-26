@@ -2,6 +2,13 @@
     "name": "NFTasCollateral",
     "methods": [
         {
+            "name": "opt_in_borrower",
+            "args": [],
+            "returns": {
+                "type": "void"
+            }
+        },
+        {
             "name": "opt_in_nft",
             "args": [
                 {
@@ -50,7 +57,12 @@
         },
         {
             "name": "repay_loan",
-            "args": [],
+            "args": [
+                {
+                    "type": "axfer",
+                    "name": "loan"
+                }
+            ],
             "returns": {
                 "type": "void"
             }
@@ -59,7 +71,7 @@
             "name": "accept_loan",
             "args": [
                 {
-                    "type": "pay",
+                    "type": "axfer",
                     "name": "loan"
                 }
             ],

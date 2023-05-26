@@ -13,11 +13,14 @@ from beaker import *
 ##########
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def create_app():
     global accounts
-    global creator_acct
+    global creator
+    global borrower
+    global lender
     global app_client
+    global sp
     accounts = sorted(
         sandbox.get_accounts(),
         key=lambda a: sandbox.clients.get_algod_client().account_info(a.address)[
@@ -25,180 +28,142 @@ def create_app():
         ],
     )
 
-    creator_acct = accounts.pop()
+    creator = accounts.pop()
+    borrower = accounts.pop()
+    lender = accounts.pop()
 
     app_client = client.ApplicationClient(
-        app=open("./application.json").read(),
+        app=open("./artifacts/application.json").read(),
         client=sandbox.get_algod_client(),
-        signer=creator_acct.signer,
+        signer=creator.signer,
     )
+    sp=app_client.get_suggested_params()
 
     app_client.create()
+    app_client.fund(200_000)
 
-
-@pytest.fixture(scope="module")
-def opt_in():
-    global asa
+    # Borrower creates 1 NFT
+    global nft
     atc = AtomicTransactionComposer()
-
-    # Create ASA
-    asa_create = TransactionWithSigner(
+    sp.fee = sp.min_fee
+    nft_create = TransactionWithSigner(
         txn=transaction.AssetCreateTxn(
-            sender=creator_acct.address,
+            sender=borrower.address,
             total=1,
             decimals=0,
             default_frozen=False,
-            unit_name="BASA",
-            asset_name="Beaker ASA",
-            sp=app_client.get_suggested_params(),
+            unit_name="NFT",
+            asset_name="Beaker NFT",
+            sp=sp,
         ),
-        signer=creator_acct.signer,
+        signer=borrower.signer,
     )
-
-    atc.add_transaction(asa_create)
+    atc.add_transaction(nft_create)
     tx_id = atc.execute(sandbox.get_algod_client(), 3).tx_ids[0]
-    asa = sandbox.get_algod_client().pending_transaction_info(tx_id)["asset-index"]
+    nft = sandbox.get_algod_client().pending_transaction_info(tx_id)["asset-index"]
 
-    # Fund app with account MBR + ASA MBR
-    app_client.fund(200_000)
-
-    # Call opt_into_asset
-    sp = app_client.get_suggested_params()
+    # Lender creates 10 tokens
+    global token
+    atc = AtomicTransactionComposer()
     sp.fee = sp.min_fee * 2
-    app_client.call("opt_into_asset", asset=asa, suggested_params=sp)
+    token_create = TransactionWithSigner(
+        txn=transaction.AssetCreateTxn(
+            sender=lender.address,
+            total=10,
+            decimals=0,
+            default_frozen=False,
+            unit_name="TOKEN",
+            asset_name="Beaker TOKEN",
+            sp=sp,
+        ),
+        signer=lender.signer,
+    )
+    atc.add_transaction(token_create)
+    tx_id = atc.execute(sandbox.get_algod_client(), 3).tx_ids[0]
+    token = sandbox.get_algod_client().pending_transaction_info(tx_id)["asset-index"]
+    
+@pytest.fixture(scope="function")
+def opt_in_borrower():
+    # opt-in borrower to token
+    txn = TransactionWithSigner(
+        txn=transaction.AssetOptInTxn(borrower.address, sp, token),
+        signer=borrower.signer,
+    )
+    atc = AtomicTransactionComposer()
+    atc.add_transaction(txn)
+    tx_id = atc.execute(sandbox.get_algod_client(), 3).tx_ids[0]
+    app_client.call("opt_in_borrower", signer=borrower.signer, suggested_params=sp)
 
 
-@pytest.fixture(scope="module")
-def start_auction():
-    sp = app_client.get_suggested_params()
+@pytest.fixture(scope="function")
+def opt_in_nft():
+    sp.fee = sp.min_fee * 2
+    app_client.call("opt_in_nft", nft=nft, signer=borrower.signer, suggested_params=sp)
 
+
+@pytest.fixture(scope="function")
+def request_loan():
+    global amount
+    # Borrower transfers the NFT
+    sp.fee = sp.min_fee
     axfer = TransactionWithSigner(
         txn=transaction.AssetTransferTxn(
-            sender=creator_acct.address,
+            sender=borrower.address,
             receiver=app_client.app_addr,
-            index=asa,
+            index=nft,
             amt=1,
             sp=sp,
         ),
-        signer=creator_acct.signer,
+        signer=borrower.signer,
     )
 
-    app_client.call("start_auction", axfer=axfer, starting_price=10_000, length=36_000)
-
-
-@pytest.fixture(scope="module")
-def send_first_bid():
-    global first_bidder
-    first_bidder = accounts.pop()
-
-    sp = app_client.get_suggested_params()
-
-    pay_txn = TransactionWithSigner(
-        txn=transaction.PaymentTxn(
-            sender=first_bidder.address, receiver=app_client.app_addr, amt=20_000, sp=sp
-        ),
-        signer=first_bidder.signer,
-    )
-
+    amount=5
     app_client.call(
-        "bid",
-        payment=pay_txn,
-        previous_bidder=first_bidder.address,
-        signer=first_bidder.signer,
-    )
+        "request_loan", 
+        token=token,
+        amount=amount,
+        duration=36_000,
+        interest=1,
+        axfer=axfer,
+        signer=borrower.signer)
 
-
-@pytest.fixture(scope="module")
-def send_second_bid():
-    global second_bidder
-    global first_bidder_amount
-    second_bidder = accounts.pop()
-
-    sp = app_client.get_suggested_params()
+@pytest.fixture(scope="function")
+def delete_request():
     sp.fee = sp.min_fee * 2
-    first_bidder_amount = app_client.client.account_info(first_bidder.address)["amount"]
+    app_client.call("delete_request", signer=borrower.signer, foreign_assets=[nft], suggested_params=sp)
 
-    pay_txn = TransactionWithSigner(
-        txn=transaction.PaymentTxn(
-            sender=second_bidder.address,
-            receiver=app_client.app_addr,
-            amt=30_000,
+@pytest.fixture(scope="function")
+def accept_loan():
+    # Lender transfers the Tokens
+    axfer = TransactionWithSigner(
+        txn=transaction.AssetTransferTxn(
+            sender=lender.address,
+            receiver=borrower.address,
+            index=token,
+            amt=amount,
             sp=sp,
         ),
-        signer=second_bidder.signer,
+        signer=lender.signer,
     )
+    app_client.call("accept_loan", loan=axfer, signer=lender.signer)
 
-    app_client.call(
-        "bid",
-        payment=pay_txn,
-        previous_bidder=first_bidder.address,
-        signer=second_bidder.signer,
-    )
-
-
-@pytest.fixture(scope="module")
-def end_auction():
-    sp = app_client.get_suggested_params()
-    sp.fee = sp.min_fee * 2
-
-    atc = AtomicTransactionComposer()
-
-    app_client.add_method_call(
-        atc=atc,
-        method="end_auction",
-        sender=creator_acct.address,
-        suggested_params=sp,
-        signer=creator_acct.signer,
-    )
-
-    dr_req = transaction.create_dryrun(
-        app_client.client,
-        atc.gather_signatures(),
-        latest_timestamp=2524608000,  # <- January 1, 2050
-    )
-    dr_res = DryrunResponse(app_client.client.dryrun(dr_req))
-    global global_delta
-
-    global_delta = dr_res.txns[0].global_delta
-
-
-@pytest.fixture(scope="module")
-def claim_bid():
-    sp = app_client.get_suggested_params()
-    sp.fee = sp.min_fee * 2
-    app_client.call("claim_bid", suggested_params=sp)
-
-
-@pytest.fixture(scope="module")
-def claim_asset():
-    atc = AtomicTransactionComposer()
-    bidder_opt_in = TransactionWithSigner(
+@pytest.fixture(scope="function")
+def repay_loan():
+    # Borrower transfers the Tokens back to the Lender
+    axfer = TransactionWithSigner(
         txn=transaction.AssetTransferTxn(
-            sender=second_bidder.address,
-            receiver=second_bidder.address,
-            index=asa,
-            amt=0,
-            sp=app_client.get_suggested_params(),
+            sender=borrower.address,
+            receiver=lender.address,
+            index=token,
+            amt=amount, # TODO: fix interest + interest * (latest_timestamp - start) / 31556926
+            sp=sp,
         ),
-        signer=second_bidder.signer,
+        signer=borrower.signer,
     )
+    app_client.call("repay_loan", loan=axfer, signer=borrower.signer)
 
-    atc.add_transaction(bidder_opt_in)
-
-    sp = app_client.get_suggested_params()
-    sp.fee = sp.min_fee * 2
-
-    app_client.add_method_call(
-        atc=atc,
-        method="claim_asset",
-        asset=asa,
-        close_to_account=creator_acct.address,
-        suggested_params=sp,
-        sender=second_bidder.address,
-        signer=second_bidder.signer,
-    ),
-
-    atc.execute(sandbox.get_algod_client(), 3)
+def liquidate_loan():
+    app_client.call("liquidate_loan", signer=app_client.signer)
 
 
 ##############
@@ -207,126 +172,102 @@ def claim_asset():
 
 
 @pytest.mark.create
-def test_create_highest_bidder(create_app):
-    assert app_client.get_global_state()["highest_bidder"] == ""
-
-
-@pytest.mark.create
-def test_create_highest_bid(create_app):
-    assert app_client.get_global_state()["highest_bid"] == 0
-
-
-@pytest.mark.create
-def test_create_auction_end(create_app):
-    assert app_client.get_global_state()["auction_end"] == 0
-
+def test_create_state(create_app):
+    state = app_client.get_global_state()
+    assert state["nft"] == 0
+    assert state["token"] == 0
+    assert state["amount"] == 0
+    assert state["interest"] == 0
+    assert state["start"] == 0
+    assert state["end"] == 0
+    assert state["duration"] == 0
+    assert state["borrower"] == ""
+    assert state["lender"] == ""
 
 #############
 # OptIn tests
 #############
 
+@pytest.mark.opt_in_borrower
+def test_opt_in_borrower(create_app, opt_in_borrower):
+    assert app_client.get_global_state()["borrower"] != ""
 
-@pytest.mark.opt_in
-def test_opt_in(create_app, opt_in):
+@pytest.mark.opt_in_nft
+def test_opt_in_nft(create_app, opt_in_borrower, opt_in_nft):
     assert len(app_client.client.account_info(app_client.app_addr)["assets"]) == 1
+    assert app_client.get_global_state()["nft"] != 0
 
 
 #####################
-# start_auction tests
+# request_loan tests
 #####################
 
+@pytest.mark.request_loan
+def test_request_loan(create_app, opt_in_borrower, opt_in_nft, request_loan):
+    state = app_client.get_global_state()
+    assert state["token"] != 0
+    assert state["amount"] != 0
+    assert state["duration"] != 0
+    assert state["interest"] != 0
+    
+######################
+# delete_request tests
+######################
 
-@pytest.mark.start_auction
-def test_start_auction_end(create_app, opt_in, start_auction):
-    assert app_client.get_global_state()["auction_end"] != 0
-
-
-@pytest.mark.start_auction
-def test_start_auction_highest_bid(create_app, opt_in, start_auction):
-    assert app_client.get_global_state()["highest_bid"] == 10_000
-
-
-#################
-# first_bid tests
-#################
-
-
-@pytest.mark.first_bid
-def test_first_bid_highest_bid(create_app, opt_in, start_auction, send_first_bid):
-    assert app_client.get_global_state()["highest_bid"] == 20_000
-
-
-@pytest.mark.first_bid
-def test_first_bid_highest_bidder(create_app, opt_in, start_auction, send_first_bid):
-    addr = bytes.fromhex(app_client.get_global_state()["highest_bidder"])
-    assert encode_address(addr) == first_bidder.address
-
-
-##################
-# second_bid tests
-##################
-
-
-@pytest.mark.second_bid
-def test_second_bid_highest_bid(
-    create_app, opt_in, start_auction, send_first_bid, send_second_bid
-):
-    assert app_client.get_global_state()["highest_bid"] == 30_000
-
-
-@pytest.mark.second_bid
-def test_second_bid_highest_bidder(
-    create_app, opt_in, start_auction, send_first_bid, send_second_bid
-):
-    addr = bytes.fromhex(app_client.get_global_state()["highest_bidder"])
-    assert encode_address(addr) == second_bidder.address
-
-
-@pytest.mark.second_bid
-def test_second_bid_first_bidder_balance(
-    create_app, opt_in, start_auction, send_first_bid, send_second_bid
-):
-    assert (
-        app_client.client.account_info(first_bidder.address)["amount"]
-        == first_bidder_amount + 20_000
-    )
-
-
-@pytest.mark.second_bid
-def test_second_bid_app_balance(
-    create_app, opt_in, start_auction, send_first_bid, send_second_bid
-):
-    assert (
-        app_client.client.account_info(app_client.app_addr)["amount"]
-        == 30_000 + 200_000
-    )
-
-
-#################
-# claim_bid tests
-#################
-
-
-@pytest.mark.claim_bid
-def test_claim_bid(
-    create_app, opt_in, start_auction, send_first_bid, send_second_bid, claim_bid
-):
-    assert app_client.client.account_info(app_client.app_addr)["amount"] == 200_000
-
+@pytest.mark.delete_request
+def test_delete_request(create_app, opt_in_borrower, opt_in_nft, request_loan, delete_request):
+    state = app_client.get_global_state()
+    assert state["nft"] == 0
+    assert state["token"] == 0
+    assert state["amount"] == 0
+    assert state["interest"] == 0
+    assert state["start"] == 0
+    assert state["end"] == 0
+    assert state["duration"] == 0
+    assert state["borrower"] == ""
+    assert state["lender"] == ""
 
 ###################
-# claim_asset tests
+# accept_loan tests
 ###################
 
+@pytest.mark.accept_loan
+def test_accept_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accept_loan):
+    state = app_client.get_global_state()
+    assert state["lender"] != ""
+    assert state["start"] != 0
+    assert state["end"] != 0
 
-@pytest.mark.claim_asset
-def test_claim_asset(
-    create_app,
-    opt_in,
-    start_auction,
-    send_first_bid,
-    send_second_bid,
-    claim_bid,
-    claim_asset,
-):
-    assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+##################
+# repay_loan tests
+##################
+
+@pytest.mark.repay_loan
+def test_repay_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accept_loan, repay_loan):
+    state = app_client.get_global_state()
+    assert state["nft"] == 0
+    assert state["token"] == 0
+    assert state["amount"] == 0
+    assert state["interest"] == 0
+    assert state["start"] == 0
+    assert state["end"] == 0
+    assert state["duration"] == 0
+    assert state["borrower"] == ""
+    assert state["lender"] == ""
+
+##################
+# repay_loan tests
+##################
+
+@pytest.mark.liquidate_loan
+def test_liquidate_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accept_loan, liquidate_loan):
+    state = app_client.get_global_state()
+    assert state["nft"] == 0
+    assert state["token"] == 0
+    assert state["amount"] == 0
+    assert state["interest"] == 0
+    assert state["start"] == 0
+    assert state["end"] == 0
+    assert state["duration"] == 0
+    assert state["borrower"] == ""
+    assert state["lender"] == ""
