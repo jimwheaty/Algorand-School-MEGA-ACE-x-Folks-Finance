@@ -57,6 +57,9 @@ https://developer.algorand.org/docs/get-started/algokit/
 
 `algokit bootstrap all`
 
+### 3. Start localnet
+`algokit localnet start`
+
 ### 3. Compile Contract
 
 `poetry run python app.py`
