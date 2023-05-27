@@ -73,8 +73,7 @@ def create() -> Expr:
 
 # ---------------------------- Borrower ----------------------------
 @app.external()
-# @app.opt_in(bare=True)
-def opt_in_borrower() -> Expr:
+def opt_borrower_in_token() -> Expr:
     return Seq(
         # Checks
         Assert(app.state.borrower == Bytes("")),
@@ -84,7 +83,7 @@ def opt_in_borrower() -> Expr:
 
 
 @app.external()
-def opt_in_nft(nft: abi.Asset) -> Expr:
+def opt_app_in_nft(nft: abi.Asset) -> Expr:
     return Seq(
         # Checks
         Assert(Txn.sender() == app.state.borrower),
@@ -158,6 +157,17 @@ def repay_loan(loan: abi.AssetTransferTransaction) -> Expr:
         Assert(loan.get().xfer_asset() == app.state.token.get()),
         Assert(loan.get().asset_amount() == app.state.amount.get()),
         Assert(loan.get().asset_receiver() == app.state.lender.get()),
+        # Transaction 
+        InnerTxnBuilder.Execute(
+            {
+                TxnField.type_enum: TxnType.AssetTransfer,
+                TxnField.xfer_asset: app.state.nft,
+                TxnField.asset_amount: Int(1),
+                TxnField.asset_receiver: app.state.borrower,
+                TxnField.fee: Int(0),
+                TxnField.asset_close_to: app.state.borrower,
+            }
+        ),
         # State
         app.initialize_global_state()
     )

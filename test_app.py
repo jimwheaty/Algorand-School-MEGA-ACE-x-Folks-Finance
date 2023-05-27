@@ -83,7 +83,7 @@ def create_app():
     token = sandbox.get_algod_client().pending_transaction_info(tx_id)["asset-index"]
     
 @pytest.fixture(scope="function")
-def opt_in_borrower():
+def opt_borrower_in_token():
     # opt-in Borrower to Token
     txn = TransactionWithSigner(
         txn=transaction.AssetOptInTxn(borrower.address, sp, token),
@@ -92,18 +92,20 @@ def opt_in_borrower():
     atc = AtomicTransactionComposer()
     atc.add_transaction(txn)
     tx_id = atc.execute(sandbox.get_algod_client(), 3).tx_ids[0]
-    app_client.call("opt_in_borrower", signer=borrower.signer, suggested_params=sp)
+    app_client.call("opt_borrower_in_token", signer=borrower.signer, suggested_params=sp)
 
 
 @pytest.fixture(scope="function")
-def opt_in_nft():
+def opt_app_in_nft():
     sp.fee = sp.min_fee * 2
-    app_client.call("opt_in_nft", nft=nft, signer=borrower.signer, suggested_params=sp)
+    app_client.call("opt_app_in_nft", nft=nft, signer=borrower.signer, suggested_params=sp)
 
 
 @pytest.fixture(scope="function")
 def request_loan():
     global amount
+    global duration
+    global interest
     # Borrower transfers the NFT
     sp.fee = sp.min_fee
     axfer = TransactionWithSigner(
@@ -118,11 +120,13 @@ def request_loan():
     )
 
     amount=5
+    duration=1
+    interest=1
     app_client.call(
         "request_loan", 
         token=token,
         amount=amount,
-        duration=1,
+        duration=duration,
         interest=1,
         axfer=axfer,
         signer=borrower.signer)
@@ -160,11 +164,11 @@ def repay_loan():
         ),
         signer=borrower.signer,
     )
-    app_client.call("repay_loan", loan=axfer, signer=borrower.signer)
+    app_client.call("repay_loan", loan=axfer, signer=borrower.signer, foreign_assets=[nft])
 
 @pytest.fixture(scope="function")
 def liquidate_loan():
-    # opt-in Lender to NFTs
+    # opt-in Lender to NFT
     txn = TransactionWithSigner(
         txn=transaction.AssetOptInTxn(lender.address, sp, nft),
         signer=lender.signer,
@@ -194,23 +198,42 @@ def test_create_state(create_app):
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 1
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
 #############
 # OptIn tests
 #############
 
-@pytest.mark.opt_in_borrower
-def test_opt_in_borrower(create_app, opt_in_borrower):
+@pytest.mark.opt_borrower_in_token
+def test_opt_borrower_in_token(create_app, opt_borrower_in_token):
     state = app_client.get_global_state()
-    print(f"opt_in_borrower: {state}\n")
-    assert state["borrower"] != ""
+    print(f"opt_borrower_in_token: {state}\n")
+    assert encode_address(bytes.fromhex(state["borrower"])) == borrower.address
+    assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
-@pytest.mark.opt_in_nft
-def test_opt_in_nft(create_app, opt_in_borrower, opt_in_nft):
+@pytest.mark.opt_app_in_nft
+def test_opt_app_in_nft(create_app, opt_borrower_in_token, opt_app_in_nft):
     state = app_client.get_global_state()
-    print(f"opt_in_nft: {state}\n")
-    assert len(app_client.client.account_info(app_client.app_addr)["assets"]) == 1
-    assert state["nft"] != 0
+    print(f"opt_app_in_nft: {state}\n")
+    assert state["nft"] == nft
+    assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["asset-id"] == nft
+    assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["amount"] == 0
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
 
 #####################
@@ -218,20 +241,28 @@ def test_opt_in_nft(create_app, opt_in_borrower, opt_in_nft):
 #####################
 
 @pytest.mark.request_loan
-def test_request_loan(create_app, opt_in_borrower, opt_in_nft, request_loan):
+def test_request_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request_loan):
     state = app_client.get_global_state()
     print(f"request_loan: {state}\n")
-    assert state["token"] != 0
-    assert state["amount"] != 0
-    assert state["duration"] != 0
-    assert state["interest"] != 0
+    assert state["token"] == token
+    assert state["amount"] == amount
+    assert state["duration"] == duration
+    assert state["interest"] == interest
+    assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["asset-id"] == nft
+    assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["amount"] == 1
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 0
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
     
 ######################
 # delete_request tests
 ######################
 
 @pytest.mark.delete_request
-def test_delete_request(create_app, opt_in_borrower, opt_in_nft, request_loan, delete_request):
+def test_delete_request(create_app, opt_borrower_in_token, opt_app_in_nft, request_loan, delete_request):
     state = app_client.get_global_state()
     print(f"delete_request: {state}\n")
     assert state["nft"] == 0
@@ -243,25 +274,39 @@ def test_delete_request(create_app, opt_in_borrower, opt_in_nft, request_loan, d
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
 ###################
 # accept_loan tests
 ###################
 
 @pytest.mark.accept_loan
-def test_accept_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accept_loan):
+def test_accept_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request_loan, accept_loan):
     state = app_client.get_global_state()
     print(f"accept_loan: {state}\n")
-    assert state["lender"] != ""
-    assert state["start"] != 0
-    assert state["end"] != 0
+    assert encode_address(bytes.fromhex(state["lender"])) == lender.address
+    assert state["start"] + duration == state["end"]
+    assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["asset-id"] == nft
+    assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["amount"] == 1
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 0
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 5
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 5
 
 ##################
 # repay_loan tests
 ##################
 
 @pytest.mark.repay_loan
-def test_repay_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accept_loan, repay_loan):
+def test_repay_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request_loan, accept_loan, repay_loan):
     state = app_client.get_global_state()
     print(f"repay_loan: {state}\n")
     assert state["nft"] == 0
@@ -273,13 +318,20 @@ def test_repay_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accep
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
 ##################
 # repay_loan tests
 ##################
 
 @pytest.mark.liquidate_loan
-def test_liquidate_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, accept_loan, liquidate_loan):
+def test_liquidate_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request_loan, accept_loan, liquidate_loan):
     state = app_client.get_global_state()
     print(f"liquidate_loan: {state}\n")
     assert state["nft"] == 0
@@ -291,3 +343,11 @@ def test_liquidate_loan(create_app, opt_in_borrower, opt_in_nft, request_loan, a
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
+    assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 0
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 5
+    assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
+    assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 5
+
