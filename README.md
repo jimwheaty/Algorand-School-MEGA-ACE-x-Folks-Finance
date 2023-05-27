@@ -4,6 +4,9 @@ This repo was initialized with algokit and contains the following:
 2. [Python Tests](test_app.py) written with [Beaker](https://github.com/algorand-devrel/beaker) and [pytest](https://docs.pytest.org/en/7.1.x/)
 3. A web-based [front-end](web/) written with [js-algorand-sdk](https://github.com/algorand-devrel/beaker) and [algokit-utils-ts](https://github.com/algorandfoundation/algokit-utils-ts/) (based on [algo-web-template](https://github.com/algorand-devrel/algo-web-template))
 
+# Install prerequisites 
+https://developer.algorand.org/docs/get-started/algokit/
+
 # Install python dependencies
 
 `algokit bootstrap all`

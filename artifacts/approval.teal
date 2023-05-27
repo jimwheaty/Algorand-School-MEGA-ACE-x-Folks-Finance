@@ -1,6 +1,6 @@
 #pragma version 8
 intcblock 0 1 4
-bytecblock 0x626f72726f776572 0x 0x6c656e646572 0x6e6674 0x746f6b656e 0x616d6f756e74 0x656e64 0x6475726174696f6e 0x696e746572657374 0x7374617274
+bytecblock 0x626f72726f776572 0x 0x6c656e646572 0x6e6674 0x746f6b656e 0x616d6f756e74 0x6475726174696f6e 0x656e64 0x7374617274 0x696e746572657374
 txn NumAppArgs
 intc_0 // 0
 ==
@@ -30,7 +30,7 @@ pushbytes 0xcdf17167 // "accept_loan(axfer)void"
 ==
 bnz main_l10
 txna ApplicationArgs 0
-pushbytes 0x9bbccbce // "liquidate_loan(asset,account)void"
+pushbytes 0x0e4dfb8e // "liquidate_loan()void"
 ==
 bnz main_l9
 err
@@ -43,16 +43,6 @@ intc_0 // 0
 !=
 &&
 assert
-txna ApplicationArgs 1
-intc_0 // 0
-getbyte
-store 7
-txna ApplicationArgs 2
-intc_0 // 0
-getbyte
-store 8
-load 7
-load 8
 callsub liquidateloan_7
 intc_1 // 1
 return
@@ -201,13 +191,13 @@ app_global_put
 bytec_0 // "borrower"
 bytec_1 // ""
 app_global_put
-bytec 7 // "duration"
+bytec 6 // "duration"
 intc_0 // 0
 app_global_put
-bytec 6 // "end"
+bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 8 // "interest"
+bytec 9 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -216,7 +206,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 9 // "start"
+bytec 8 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"
@@ -299,10 +289,10 @@ app_global_put
 bytec 5 // "amount"
 frame_dig -4
 app_global_put
-bytec 7 // "duration"
+bytec 6 // "duration"
 frame_dig -3
 app_global_put
-bytec 8 // "interest"
+bytec 9 // "interest"
 frame_dig -2
 app_global_put
 retsub
@@ -343,13 +333,13 @@ app_global_put
 bytec_0 // "borrower"
 bytec_1 // ""
 app_global_put
-bytec 7 // "duration"
+bytec 6 // "duration"
 intc_0 // 0
 app_global_put
-bytec 6 // "end"
+bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 8 // "interest"
+bytec 9 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -358,7 +348,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 9 // "start"
+bytec 8 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"
@@ -380,7 +370,7 @@ bytec_1 // ""
 !=
 assert
 global LatestTimestamp
-bytec 6 // "end"
+bytec 7 // "end"
 app_global_get
 <=
 assert
@@ -408,13 +398,13 @@ app_global_put
 bytec_0 // "borrower"
 bytec_1 // ""
 app_global_put
-bytec 7 // "duration"
+bytec 6 // "duration"
 intc_0 // 0
 app_global_put
-bytec 6 // "end"
+bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 8 // "interest"
+bytec 9 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -423,7 +413,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 9 // "start"
+bytec 8 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"
@@ -461,12 +451,12 @@ bytec_2 // "lender"
 frame_dig -1
 gtxns Sender
 app_global_put
-bytec 9 // "start"
+bytec 8 // "start"
 global LatestTimestamp
 app_global_put
-bytec 6 // "end"
+bytec 7 // "end"
 global LatestTimestamp
-bytec 7 // "duration"
+bytec 6 // "duration"
 app_global_get
 +
 app_global_put
@@ -474,16 +464,16 @@ retsub
 
 // liquidate_loan
 liquidateloan_7:
-proto 2 0
+proto 0 0
 txn Sender
 bytec_2 // "lender"
 app_global_get
 ==
 assert
 global LatestTimestamp
-bytec 6 // "end"
+bytec 8 // "start"
 app_global_get
->
+==
 assert
 itxn_begin
 intc_2 // axfer
@@ -498,8 +488,35 @@ app_global_get
 itxn_field AssetReceiver
 intc_0 // 0
 itxn_field Fee
-frame_dig -1
-txnas Accounts
+bytec_2 // "lender"
+app_global_get
 itxn_field AssetCloseTo
 itxn_submit
+bytec 5 // "amount"
+intc_0 // 0
+app_global_put
+bytec_0 // "borrower"
+bytec_1 // ""
+app_global_put
+bytec 6 // "duration"
+intc_0 // 0
+app_global_put
+bytec 7 // "end"
+intc_0 // 0
+app_global_put
+bytec 9 // "interest"
+intc_0 // 0
+app_global_put
+bytec_2 // "lender"
+bytec_1 // ""
+app_global_put
+bytec_3 // "nft"
+intc_0 // 0
+app_global_put
+bytec 8 // "start"
+intc_0 // 0
+app_global_put
+bytec 4 // "token"
+intc_0 // 0
+app_global_put
 retsub

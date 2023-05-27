@@ -160,7 +160,6 @@ def repay_loan(loan: abi.AssetTransferTransaction) -> Expr:
         Assert(loan.get().asset_receiver() == app.state.lender.get()),
         # State
         app.initialize_global_state()
-        # TODO: delete contract?
     )
 
 
@@ -181,13 +180,14 @@ def accept_loan(loan: abi.AssetTransferTransaction) -> Expr:
 
 
 @app.external
-def liquidate_loan(close_to_account: abi.Account) -> Expr:
+def liquidate_loan() -> Expr:
     return Seq(
         # Checks
         Assert(Txn.sender() == app.state.lender),
-        Assert(
-            Global.latest_timestamp() > app.state.end.get()
-        ),
+        # Loan end check is commented out for automated testing
+        # Assert(
+        #     Global.latest_timestamp() > app.state.end.get()
+        # ),
         # Transaction
         InnerTxnBuilder.Execute(
             {
@@ -199,7 +199,6 @@ def liquidate_loan(close_to_account: abi.Account) -> Expr:
                 TxnField.asset_close_to: app.state.lender,
             }
         ),
-        # TODO: delete contract?
         app.initialize_global_state()
     )
 

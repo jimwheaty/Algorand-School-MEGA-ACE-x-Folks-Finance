@@ -81,16 +81,7 @@
         },
         {
             "name": "liquidate_loan",
-            "args": [
-                {
-                    "type": "asset",
-                    "name": "nft"
-                },
-                {
-                    "type": "account",
-                    "name": "close_to_account"
-                }
-            ],
+            "args": [],
             "returns": {
                 "type": "void"
             }
