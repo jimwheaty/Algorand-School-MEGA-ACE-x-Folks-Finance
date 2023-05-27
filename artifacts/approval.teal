@@ -1,6 +1,6 @@
 #pragma version 8
 intcblock 0 1 4
-bytecblock 0x626f72726f776572 0x 0x6c656e646572 0x6e6674 0x746f6b656e 0x616d6f756e74 0x6475726174696f6e 0x656e64 0x7374617274 0x696e746572657374
+bytecblock 0x626f72726f776572 0x 0x6c656e646572 0x6e6674 0x746f6b656e 0x616d6f756e74 0x6475726174696f6e 0x656e64 0x696e746572657374 0x7374617274
 txn NumAppArgs
 intc_0 // 0
 ==
@@ -197,7 +197,7 @@ app_global_put
 bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 9 // "interest"
+bytec 8 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -206,7 +206,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 8 // "start"
+bytec 9 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"
@@ -292,7 +292,7 @@ app_global_put
 bytec 6 // "duration"
 frame_dig -3
 app_global_put
-bytec 9 // "interest"
+bytec 8 // "interest"
 frame_dig -2
 app_global_put
 retsub
@@ -339,7 +339,7 @@ app_global_put
 bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 9 // "interest"
+bytec 8 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -348,7 +348,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 8 // "start"
+bytec 9 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"
@@ -404,7 +404,7 @@ app_global_put
 bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 9 // "interest"
+bytec 8 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -413,7 +413,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 8 // "start"
+bytec 9 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"
@@ -451,7 +451,7 @@ bytec_2 // "lender"
 frame_dig -1
 gtxns Sender
 app_global_put
-bytec 8 // "start"
+bytec 9 // "start"
 global LatestTimestamp
 app_global_put
 bytec 7 // "end"
@@ -467,11 +467,6 @@ liquidateloan_7:
 proto 0 0
 txn Sender
 bytec_2 // "lender"
-app_global_get
-==
-assert
-global LatestTimestamp
-bytec 8 // "start"
 app_global_get
 ==
 assert
@@ -504,7 +499,7 @@ app_global_put
 bytec 7 // "end"
 intc_0 // 0
 app_global_put
-bytec 9 // "interest"
+bytec 8 // "interest"
 intc_0 // 0
 app_global_put
 bytec_2 // "lender"
@@ -513,7 +508,7 @@ app_global_put
 bytec_3 // "nft"
 intc_0 // 0
 app_global_put
-bytec 8 // "start"
+bytec 9 // "start"
 intc_0 // 0
 app_global_put
 bytec 4 // "token"

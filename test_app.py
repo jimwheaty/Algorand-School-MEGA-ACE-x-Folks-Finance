@@ -7,7 +7,6 @@ from algosdk.atomic_transaction_composer import (
 from algosdk.dryrun_results import DryrunResponse
 from algosdk.encoding import encode_address
 from beaker import *
-from time import sleep
 
 ##########
 # fixtures
