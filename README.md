@@ -69,7 +69,12 @@ https://developer.algorand.org/docs/get-started/algokit/
 `poetry run pytest -s`
 
 ## TODO
-1. borrower requirement has not been met cause not all borrowers can request for a loan as the data is saved as global states
-2. opt_borrower_in_token: you don't need this, and it is not an opt in
-3. When deleting or repaying you send 1 token, but when you request a loan the token amount is not checked
-4. Not need end having start and duration
+1. Fix test_liquidate_loan -> lender should receive 1 NFT
+2. borrower requirement has not been met cause not all borrowers can request for a loan as the data is saved as global states
+3. opt_borrower_in_token: you don't need this, and it is not an opt in
+4.  When deleting or repaying you send 1 token, but when you request a loan the token amount is not checked
+5. Not need end having start and duration
+6. borrower requirement has not been met cause not all borrowers can request for a loan as the data is saved as global states
+7. opt_borrower_in_token: you don't need this, and it is not an opt in
+8. When deleting or repaying you send 1 token, but when you request a loan the token amount is not checked
+9. Not need end having start and duration
