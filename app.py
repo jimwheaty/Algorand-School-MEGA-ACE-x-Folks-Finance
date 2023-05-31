@@ -73,20 +73,10 @@ def create() -> Expr:
 
 # ---------------------------- Borrower ----------------------------
 @app.external()
-def opt_borrower_in_token() -> Expr:
-    return Seq(
-        # Checks
-        Assert(app.state.borrower == Bytes("")),
-        # State
-        app.state.borrower.set(Txn.sender())
-    )
-
-
-@app.external()
 def opt_app_in_nft(nft: abi.Asset) -> Expr:
     return Seq(
         # Checks
-        Assert(Txn.sender() == app.state.borrower),
+        Assert(app.state.borrower == Bytes("")),
         Assert(app.state.nft == Int(0)),
         # Transaction
         InnerTxnBuilder.Execute(
@@ -99,6 +89,7 @@ def opt_app_in_nft(nft: abi.Asset) -> Expr:
             }
         ),
         # State
+        app.state.borrower.set(Txn.sender()),
         app.state.nft.set(nft.asset_id()),
     )
 
@@ -117,6 +108,7 @@ def request_loan(
         Assert(app.state.token.get() == Int(0)),
         Assert(axfer.get().asset_receiver() == Global.current_application_address()),
         Assert(axfer.get().xfer_asset() == app.state.nft),
+        Assert(axfer.get().asset_amount() == Int(1)),
         # State
         app.state.token.set(token.get()),
         app.state.amount.set(amount.get()),
@@ -153,7 +145,8 @@ def repay_loan(loan: abi.AssetTransferTransaction) -> Expr:
         # Checks
         Assert(Txn.sender() == app.state.borrower),
         Assert(app.state.lender != Bytes("")),
-        Assert(Global.latest_timestamp() <= app.state.end.get()),
+        Assert(Global.latest_timestamp() <= app.state.start.get()
+         + app.state.duration.get()),
         Assert(loan.get().xfer_asset() == app.state.token.get()),
         Assert(loan.get().asset_amount() == app.state.amount.get()),
         Assert(loan.get().asset_receiver() == app.state.lender.get()),
@@ -185,7 +178,6 @@ def accept_loan(loan: abi.AssetTransferTransaction) -> Expr:
         # State
         app.state.lender.set(loan.get().sender()),
         app.state.start.set(Global.latest_timestamp()),
-        app.state.end.set(Global.latest_timestamp() + app.state.duration.get()),
     )
 
 
@@ -196,7 +188,8 @@ def liquidate_loan() -> Expr:
         Assert(Txn.sender() == app.state.lender),
         # Loan end check is commented out for automated testing
         # Assert(
-        #     Global.latest_timestamp() > app.state.end.get()
+        #     Global.latest_timestamp() > app.state.start.get()
+        #  + app.state.duration.get()
         # ),
         # Transaction
         InnerTxnBuilder.Execute(
