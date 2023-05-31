@@ -120,7 +120,7 @@ def request_loan():
     )
 
     amount=5
-    duration=1
+    duration=100
     interest=1
     app_client.call(
         "request_loan", 
@@ -198,9 +198,12 @@ def test_create_state(create_app):
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    # App has [] assets
     assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    # Borrower has 1 NFT
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 1
+    # Lender has 10 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
@@ -225,13 +228,16 @@ def test_opt_borrower_in_token(create_app, opt_borrower_in_token):
 def test_opt_app_in_nft(create_app, opt_borrower_in_token, opt_app_in_nft):
     state = app_client.get_global_state()
     print(f"opt_app_in_nft: {state}\n")
+    # App has 0 NFT
     assert state["nft"] == nft
     assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["asset-id"] == nft
     assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["amount"] == 0
+    # Borrower has 1 NFT and 0 TOKENS
     assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    # Lender has 10 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
@@ -248,12 +254,15 @@ def test_request_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request
     assert state["amount"] == amount
     assert state["duration"] == duration
     assert state["interest"] == interest
+    # App has 1 NFT
     assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["asset-id"] == nft
     assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["amount"] == 1
+    # Borrower has 0 NFT and 0 TOKENS
     assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 0
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    # Lender has 10 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
     
@@ -274,11 +283,14 @@ def test_delete_request(create_app, opt_borrower_in_token, opt_app_in_nft, reque
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    # App has [] assets
     assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    # Borrower has 1 NFT and 0 TOKENS
     assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    # Lender has 10 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
@@ -292,12 +304,15 @@ def test_accept_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request_
     print(f"accept_loan: {state}\n")
     assert encode_address(bytes.fromhex(state["lender"])) == lender.address
     assert state["start"] + duration == state["end"]
+    # App has 1 NFT
     assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["asset-id"] == nft
     assert app_client.client.account_info(app_client.app_addr)["assets"][-1]["amount"] == 1
+    # Borrower has 0 NFT and 5 TOKENS
     assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 0
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 5
+    # Lender has 5 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 5
 
@@ -318,11 +333,14 @@ def test_repay_loan(create_app, opt_borrower_in_token, opt_app_in_nft, request_l
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    # App has [] assets
     assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    # Borrower has 1 NFT and 0 TOKENS
     assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 1
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 0
+    # Lender has 10 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 10
 
@@ -343,11 +361,14 @@ def test_liquidate_loan(create_app, opt_borrower_in_token, opt_app_in_nft, reque
     assert state["duration"] == 0
     assert state["borrower"] == ""
     assert state["lender"] == ""
+    # App has [] assets
     assert app_client.client.account_info(app_client.app_addr)["assets"] == []
+    # Borrower has 0 NFT and 5 TOKENS
     assert app_client.client.account_info(borrower.address)["assets"][-2]["asset-id"] == nft
     assert app_client.client.account_info(borrower.address)["assets"][-2]["amount"] == 0
     assert app_client.client.account_info(borrower.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(borrower.address)["assets"][-1]["amount"] == 5
+    # Lender has 1 NFT and 5 TOKENS
     assert app_client.client.account_info(lender.address)["assets"][-1]["asset-id"] == token
     assert app_client.client.account_info(lender.address)["assets"][-1]["amount"] == 5
 
